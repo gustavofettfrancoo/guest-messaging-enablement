@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Guest Messaging — GTM Enablement</title>
+<style>
+  /* ---- Theme tokens ---- */
+  :root {
+    --bg: #FFFCF6;
+    --text: #2D2C37;
+    --accent: #FF8EDA;
+    --muted: #6b6a75;
+    --line: #e7e3da;
+    --card: #ffffff;
+    --shadow: 0 1px 2px rgba(45, 44, 55, 0.05), 0 2px 8px rgba(45, 44, 55, 0.04);
+
+    /* Badge state colors */
+    --badge-green-bg: #e3f3e6;  --badge-green-fg: #1f6b35;
+    --badge-amber-bg: #fbeccd;  --badge-amber-fg: #8a5a00;
+    --badge-grey-bg:  #ebe9e4;  --badge-grey-fg:  #5e5c66;
+
+    --topbar-h: 60px;
+    --sidebar-w: 260px;
+    --reading-w: 720px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---- Top bar ---- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    height: var(--topbar-h);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    background: rgba(255, 252, 246, 0.92);
+    backdrop-filter: saturate(180%) blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar .hamburger {
+    display: none;
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 8px;
+    width: 38px; height: 38px;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .topbar .title {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+  .topbar .spacer { flex: 1; }
+  .topbar .search {
+    width: 240px;
+    max-width: 42vw;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    outline: none;
+  }
+  .topbar .search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,142,218,0.18); }
+
+  /* ---- Layout shell ---- */
+  .shell {
+    display: flex;
+    align-items: flex-start;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    position: sticky;
+    top: var(--topbar-h);
+    align-self: flex-start;
+    width: var(--sidebar-w);
+    flex: 0 0 var(--sidebar-w);
+    height: calc(100vh - var(--topbar-h));
+    overflow-y: auto;
+    padding: 24px 16px;
+    border-right: 1px solid var(--line);
+  }
+  .sidebar .nav-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 0 10px 8px;
+  }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: 2px 0; }
+  .sidebar nav a {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 7px 10px;
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.35;
+  }
+  .sidebar nav a .num { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 16px; }
+  .sidebar nav a:hover { background: #f4f1ea; text-decoration: none; }
+  .sidebar nav a.active {
+    background: rgba(255, 142, 218, 0.14);
+    color: #b3257f;
+    font-weight: 600;
+  }
+  .sidebar nav a.active .num { color: #b3257f; }
+  .sidebar nav li.hidden { display: none; }
+  .sidebar .no-match {
+    display: none;
+    padding: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* ---- Main column ---- */
+  main {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 32px 28px 120px;
+  }
+  .content { max-width: var(--reading-w); margin: 0 auto; }
+  .intro { margin: 0 0 28px; }
+  .intro h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .intro p { color: var(--muted); margin: 0; font-size: 14.5px; }
+
+  /* ---- Section card ---- */
+  section.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 0 0 20px;
+    box-shadow: var(--shadow);
+    scroll-margin-top: calc(var(--topbar-h) + 16px);
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .card-head h2 {
+    font-size: 18px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .card-head .num {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- Status badge (one reusable component, driven by section[data-status]) ---- */
+  .badge {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+    background: var(--badge-amber-bg);   /* default = Pending Product */
+    color: var(--badge-amber-fg);
+  }
+  section[data-status="confirmed"]          .badge { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+  section[data-status="pending-product"]    .badge { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+  section[data-status="pending-commercial"] .badge { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+  section[data-status="not-in-v1"]          .badge { background: var(--badge-grey-bg);  color: var(--badge-grey-fg); }
+
+  /* ---- Placeholder body ---- */
+  .placeholder {
+    color: var(--muted);
+    background: #faf7f0;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+
+  .subhead {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 20px 0 8px;
+  }
+  .subhead:first-child { margin-top: 0; }
+
+  /* ---- Accordion (Section 9 objection handling) ---- */
+  .accordion { display: flex; flex-direction: column; gap: 10px; }
+  .acc-item { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .acc-trigger {
+    width: 100%;
+    text-align: left;
+    background: #faf7f0;
+    border: 0;
+    padding: 12px 16px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .acc-trigger:hover { background: #f4f1ea; }
+  .acc-trigger .chev { transition: transform 0.18s ease; color: var(--muted); }
+  .acc-item.open .acc-trigger .chev { transform: rotate(90deg); }
+  .acc-body { display: none; padding: 14px 16px; border-top: 1px solid var(--line); }
+  .acc-item.open .acc-body { display: block; }
+  .field { margin: 0 0 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .field .placeholder { padding: 10px 12px; }
+
+  /* ---- Resource links (Section 10) ---- */
+  .resource-list { list-style: none; margin: 0; padding: 0; }
+  .resource-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .resource-list li:last-child { border-bottom: 0; }
+  .resource-list .res-label { font-weight: 600; min-width: 190px; }
+  .resource-list .res-url { color: var(--muted); font-size: 13px; word-break: break-all; }
+
+  /* ---- Mobile ---- */
+  .scrim {
+    display: none;
+    position: fixed;
+    inset: var(--topbar-h) 0 0 0;
+    background: rgba(45,44,55,0.35);
+    z-index: 18;
+  }
+  @media (max-width: 860px) {
+    .topbar .hamburger { display: inline-flex; align-items: center; justify-content: center; }
+    .topbar .search { width: 160px; }
+    .sidebar {
+      position: fixed;
+      top: var(--topbar-h);
+      left: 0;
+      bottom: 0;
+      height: auto;
+      width: 280px;
+      max-width: 82vw;
+      background: var(--bg);
+      transform: translateX(-100%);
+      transition: transform 0.22s ease;
+      z-index: 20;
+    }
+    body.nav-open .sidebar { transform: translateX(0); box-shadow: var(--shadow); }
+    body.nav-open .scrim { display: block; }
+    main { padding: 24px 18px 100px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ================= TOP BAR ================= -->
+  <header class="topbar">
+    <button class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+    <span class="title">Guest Messaging — GTM Enablement</span>
+    <span class="spacer"></span>
+    <input class="search" id="search" type="search" placeholder="Search sections…" aria-label="Search sections" autocomplete="off" />
+  </header>
+
+  <div class="scrim" id="scrim"></div>
+
+  <div class="shell">
+
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar" id="sidebar">
+      <div class="nav-label">Sections</div>
+      <nav>
+        <ul id="navlist">
+          <li><a href="#s1"><span class="num">1</span><span class="t">What it is</span></a></li>
+          <li><a href="#s2"><span class="num">2</span><span class="t">Who it's for / fit signals</span></a></li>
+          <li><a href="#s3"><span class="num">3</span><span class="t">Why it matters</span></a></li>
+          <li><a href="#s4"><span class="num">4</span><span class="t">What it looks like</span></a></li>
+          <li><a href="#s5"><span class="num">5</span><span class="t">How the AI works — capabilities &amp; limitations</span></a></li>
+          <li><a href="#s6"><span class="num">6</span><span class="t">Channels &amp; technical requirements</span></a></li>
+          <li><a href="#s7"><span class="num">7</span><span class="t">Billing — how it works, in-PMS view, and on the invoice</span></a></li>
+          <li><a href="#s8"><span class="num">8</span><span class="t">Scope &amp; boundaries (what it does not do / not in V1)</span></a></li>
+          <li><a href="#s9"><span class="num">9</span><span class="t">Discovery questions &amp; objection handling</span></a></li>
+          <li><a href="#s10"><span class="num">10</span><span class="t">Go deeper &amp; who to ask</span></a></li>
+        </ul>
+        <div class="no-match" id="noMatch">No matching sections.</div>
+      </nav>
+    </aside>
+
+    <!-- ================= MAIN ================= -->
+    <main>
+      <div class="content">
+
+        <div class="intro">
+          <h1>Guest Messaging — GTM Enablement</h1>
+          <p>Internal reference for sales, pre-sales, and customer success. Read this before the live session. <!-- [Edit this intro line as needed] --></p>
+        </div>
+
+        <!-- Each <section> is a card. Change its status by editing data-status:
+             "confirmed" | "pending-product" | "pending-commercial" | "not-in-v1"
+             (defaults to pending-product). -->
+
+        <!-- 1 -->
+        <section class="card" id="s1" data-status="pending-product">
+          <div class="card-head">
+            <span class="num">01</span>
+            <h2>What it is</h2>
+            <span class="badge"></span>
+          </div>
+          <div class="placeholder">[Content pending — to be filled]</div>
+        </section>
+
+        <!-- 2 -->
+        <section class="card" id="s2" data-status="pending-product">
+          <div class="card-head">
+            <span class="num">02</span>
+            <h2>Who it's for / fit signals</h2>
+            <span class="badge"></span>
+          </div>
+          <div class="placeholder">[Content pending — to be filled]</div>
+        </section>
+
+        <!-- 3 -->
+        <section class="card" id="s3" data-status="pending-product">
+          <div class="card-head">
+            <span class="num">03</span>
+            <h2>Why it matters</h2>
+            <span class="badge"></span>
+          </div>
+          <div class="placeholder">[Content pending — to be filled]</div>
+        </section>
+
+        <!-- 4 -->
+        <section class="card" id="s4" data-status="pending-product">
+          <div class="card-head">
+            <span class="num">04</span>
+            <h2>What it looks like</h2>
+            <span class="badge"></span>
+          </div>
+          <div class="placeholder">[Content pending — to be filled]</div>
+        </section>
+
+        <!-- 5 -->
+        <section class="card" id="s5" data-status="pending-product">
+          <div class="card-head">
+            <span class="num">05</span>
+            <h2>How the AI works — capabilities &amp; limitations</h2>
+            <span class="badge"></span>
+          </div>
+          <div class="placeholder">[Content pending — to be filled]</div>
+        </section>
+
+        <!-- 6 -->
+        <section class="card" id="s6" data-status="pending-product">
+          <div class="card-head">
+            <span class="num">06</span>
+            <h2>Channels &amp; technical requirements</h2>
+            <span class="badge"></span>
+          </div>
+          <div class="placeholder">[Content pending — to be filled]</div>
+        </section>
+
+        <!-- 7 -->
+        <section class="card" id="s7" data-status="pending-product">
+          <div class="card-head">
+            <span class="num">07</span>
+            <h2>Billing — how it works, in-PMS view, and on the invoice</h2>
+            <span class="badge"></span>
+          </div>
+          <div class="placeholder">[Content pending — to be filled]</div>
+        </section>
+
+        <!-- 8 -->
+        <section class="card" id="s8" data-status="pending-product">
+          <div class="card-head">
+            <span class="num">08</span>
+            <h2>Scope &amp; boundaries (what it does not do / not in V1)</h2>
+            <span class="badge"></span>
+          </div>
+          <div class="placeholder">[Content pending — to be filled]</div>
+        </section>
+
+        <!-- 9 — special structure -->
+        <section class="card" id="s9" data-status="pending-product">
+          <div class="card-head">
+            <span class="num">09</span>
+            <h2>Discovery questions &amp; objection handling</h2>
+            <span class="badge"></span>
+          </div>
+
+          <div class="subhead">Discovery questions</div>
+          <div class="placeholder">[Content pending — to be filled]</div>
+
+          <div class="subhead">Objection handling</div>
+          <!-- Repeatable accordion. Duplicate an .acc-item to add more. -->
+          <div class="accordion">
+
+            <div class="acc-item">
+              <button class="acc-trigger" type="button">
+                <span>Objection 1</span><span class="chev">›</span>
+              </button>
+              <div class="acc-body">
+                <div class="field">
+                  <div class="field-label">Objection</div>
+                  <div class="placeholder">[Objection — to be filled]</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Reframe</div>
+                  <div class="placeholder">[Reframe — to be filled]</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Discovery question that pre-empts it</div>
+                  <div class="placeholder">[Discovery question — to be filled]</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="acc-item">
+              <button class="acc-trigger" type="button">
+                <span>Objection 2</span><span class="chev">›</span>
+              </button>
+              <div class="acc-body">
+                <div class="field">
+                  <div class="field-label">Objection</div>
+                  <div class="placeholder">[Objection — to be filled]</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Reframe</div>
+                  <div class="placeholder">[Reframe — to be filled]</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Discovery question that pre-empts it</div>
+                  <div class="placeholder">[Discovery question — to be filled]</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="acc-item">
+              <button class="acc-trigger" type="button">
+                <span>Objection 3</span><span class="chev">›</span>
+              </button>
+              <div class="acc-body">
+                <div class="field">
+                  <div class="field-label">Objection</div>
+                  <div class="placeholder">[Objection — to be filled]</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Reframe</div>
+                  <div class="placeholder">[Reframe — to be filled]</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Discovery question that pre-empts it</div>
+                  <div class="placeholder">[Discovery question — to be filled]</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 10 — special structure -->
+        <section class="card" id="s10" data-status="pending-product">
+          <div class="card-head">
+            <span class="num">10</span>
+            <h2>Go deeper &amp; who to ask</h2>
+            <span class="badge"></span>
+          </div>
+
+          <div class="subhead">Resources</div>
+          <!-- Edit each label and the href (and the visible URL note). -->
+          <ul class="resource-list">
+            <li>
+              <span class="res-label">Full pricing mechanics</span>
+              <a href="#" target="_blank" rel="noopener"><span class="res-url">[Paste URL]</span></a>
+            </li>
+            <li>
+              <span class="res-label">Onboarding guide</span>
+              <a href="#" target="_blank" rel="noopener"><span class="res-url">[Paste URL]</span></a>
+            </li>
+            <li>
+              <span class="res-label">Competitor battlecard</span>
+              <a href="#" target="_blank" rel="noopener"><span class="res-url">[Paste URL]</span></a>
+            </li>
+            <li>
+              <span class="res-label">Internal FAQ</span>
+              <a href="#" target="_blank" rel="noopener"><span class="res-url">[Paste URL]</span></a>
+            </li>
+            <li>
+              <span class="res-label">Demo recording</span>
+              <a href="#" target="_blank" rel="noopener"><span class="res-url">[Paste URL]</span></a>
+            </li>
+          </ul>
+
+          <div class="subhead">Who to ask</div>
+          <div class="placeholder">[Escalation contacts — to be filled]</div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---- Status badge labels: written from each section's data-status ---- */
+  var STATUS_LABELS = {
+    "confirmed": "Confirmed",
+    "pending-product": "Pending Product",
+    "pending-commercial": "Pending Commercial",
+    "not-in-v1": "Not in V1"
+  };
+  document.querySelectorAll("section.card").forEach(function (sec) {
+    var status = sec.getAttribute("data-status") || "pending-product";
+    var badge = sec.querySelector(".badge");
+    if (badge) badge.textContent = STATUS_LABELS[status] || STATUS_LABELS["pending-product"];
+  });
+
+  /* ---- Accordion toggle ---- */
+  document.querySelectorAll(".acc-trigger").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      btn.closest(".acc-item").classList.toggle("open");
+    });
+  });
+
+  /* ---- Mobile nav (hamburger) ---- */
+  var hamburger = document.getElementById("hamburger");
+  var scrim = document.getElementById("scrim");
+  function closeNav() {
+    document.body.classList.remove("nav-open");
+    hamburger.setAttribute("aria-expanded", "false");
+  }
+  hamburger.addEventListener("click", function () {
+    var open = document.body.classList.toggle("nav-open");
+    hamburger.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  scrim.addEventListener("click", closeNav);
+
+  /* ---- Nav links: close mobile nav on click ---- */
+  var navLinks = Array.prototype.slice.call(document.querySelectorAll("#navlist a"));
+  navLinks.forEach(function (a) {
+    a.addEventListener("click", function () {
+      if (window.matchMedia("(max-width: 860px)").matches) closeNav();
+    });
+  });
+
+  /* ---- Scrollspy: highlight active section in sidebar ---- */
+  var linkById = {};
+  navLinks.forEach(function (a) { linkById[a.getAttribute("href").slice(1)] = a; });
+
+  var sections = Array.prototype.slice.call(document.querySelectorAll("section.card"));
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        navLinks.forEach(function (a) { a.classList.remove("active"); });
+        var active = linkById[entry.target.id];
+        if (active) active.classList.add("active");
+      }
+    });
+  }, { rootMargin: "-45% 0px -50% 0px", threshold: 0 });
+  sections.forEach(function (s) { observer.observe(s); });
+
+  /* ---- Search: filter sidebar by section name; Enter jumps to first match ---- */
+  var search = document.getElementById("search");
+  var noMatch = document.getElementById("noMatch");
+  function applyFilter() {
+    var q = search.value.trim().toLowerCase();
+    var firstVisible = null;
+    navLinks.forEach(function (a) {
+      var li = a.parentElement;
+      var name = a.querySelector(".t").textContent.toLowerCase();
+      var match = q === "" || name.indexOf(q) !== -1;
+      li.classList.toggle("hidden", !match);
+      if (match && !firstVisible) firstVisible = a;
+    });
+    noMatch.style.display = firstVisible ? "none" : "block";
+    return firstVisible;
+  }
+  search.addEventListener("input", applyFilter);
+  search.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      var first = applyFilter();
+      if (first) {
+        document.getElementById(first.getAttribute("href").slice(1))
+          .scrollIntoView({ behavior: "smooth", block: "start" });
+        if (window.matchMedia("(max-width: 860px)").matches) closeNav();
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>
