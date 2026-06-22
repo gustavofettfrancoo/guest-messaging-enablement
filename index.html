@@ -586,21 +586,41 @@
     });
   });
 
-  /* ---- Scrollspy: highlight active section in sidebar ---- */
+  /* ---- Scrollspy: highlight the topmost section in view ---- */
   var linkById = {};
   navLinks.forEach(function (a) { linkById[a.getAttribute("href").slice(1)] = a; });
-
   var sections = Array.prototype.slice.call(document.querySelectorAll("section.card"));
-  var observer = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry) {
-      if (entry.isIntersecting) {
-        navLinks.forEach(function (a) { a.classList.remove("active"); });
-        var active = linkById[entry.target.id];
-        if (active) active.classList.add("active");
-      }
-    });
-  }, { rootMargin: "-45% 0px -50% 0px", threshold: 0 });
-  sections.forEach(function (s) { observer.observe(s); });
+
+  function setActive(id) {
+    navLinks.forEach(function (a) { a.classList.toggle("active", a.getAttribute("href") === "#" + id); });
+  }
+
+  function updateScrollspy() {
+    var topbarH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--topbar-h"), 10) || 60;
+    var threshold = topbarH + 24;
+    // At the very bottom of the page, the last section is the active one.
+    if (window.innerHeight + Math.ceil(window.scrollY) >= document.documentElement.scrollHeight - 2) {
+      setActive(sections[sections.length - 1].id);
+      return;
+    }
+    // Otherwise: the last section whose top has crossed the threshold (defaults to the first).
+    var current = sections[0];
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].getBoundingClientRect().top <= threshold) current = sections[i];
+      else break;
+    }
+    setActive(current.id);
+  }
+
+  var ticking = false;
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () { updateScrollspy(); ticking = false; });
+  }
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
+  updateScrollspy();
 
   /* ---- Search: filter sidebar by section name; Enter jumps to first match ---- */
   var search = document.getElementById("search");
